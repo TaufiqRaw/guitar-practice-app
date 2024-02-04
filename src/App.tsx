@@ -596,7 +596,7 @@ function App() {
   createEffect (on(beat, () => {
       if(beatInterval() === undefined) return; // If not playing, stop the effect
       if(beat() === 0) {
-        const audioString = `/sfx/${guitarOffsetToNotesWithOctave(noteStack()[1]).replace('#', 's')}.wav`
+        const audioString = `./sfx/${guitarOffsetToNotesWithOctave(noteStack()[1]).replace('#', 's')}.wav`
         const audio = new Audio(audioString)
         audio.play()
 
@@ -617,7 +617,7 @@ function App() {
           })
         }
       } else {
-        const audio = new Audio('/sfx/metronome-accent.mp3')
+        const audio = new Audio('./sfx/metronome-accent.mp3')
         audio.play()
       }
     }))
