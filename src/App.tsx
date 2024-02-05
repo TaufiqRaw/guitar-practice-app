@@ -1,5 +1,6 @@
-import { Show, batch, createEffect, createSignal, on } from 'solid-js'
+import { Show, batch, createEffect, createSignal, on, onMount } from 'solid-js'
 import mainGuitarIMG from './assets/main-guitar.png'
+import SimpleBar from 'simplebar';
 
 function secondToMilisecond(second: number) {
   return second * 1000
@@ -523,6 +524,10 @@ const NOTES_WITH_OCTAVE = [
   "F5", "F#5", "G5", "G#5", "A5", "A#5", "B5", "C6"
 ]
 
+const NOTES = [
+  "C", "D", "E", "F", "G", "A", "B"
+]
+
 const GUITAR_STRING_TO_NOTES_WITH_OCTAVE_INDEX : {[x:string] : number} = {
   'E': 0,
   'A': 5,
@@ -532,15 +537,132 @@ const GUITAR_STRING_TO_NOTES_WITH_OCTAVE_INDEX : {[x:string] : number} = {
   'e': 24
 }
 
-const presets : {[x:string] : string} = {
+const naturalPresets : {[x:string] : string} = {
   "Natural (E String)" : "E0, E1, E3, E5, E7, E8, E10, E12",
   "Natural (A String)" : "A0, A2, A3, A5, A7, A9, A10, A12",
   "Natural (D String)" : "D0, D2, D3, D5, D7, D9, D10, D12",
   "Natural (G String)" : "G0, G2, G4, G5, G7, G9, G10, G12",
   "Natural (B String)" : "B0, B1, B3, B5, B6, B8, B10, B12",
   "Natural (e String)" : "e0, e1, e3, e5, e7, e8, e10, e12",
-  "C Major 3NPS 1st Position" : "E1, E3, E5, A2, A3, A5, D2, D3, D5, G2, G4, G5, B3, B5, B6, e3, e5, e7",
-  "C Major 3NPS 2nd Position" : "E3, E5, E7, A3, A5, A7, D3, D5, D7, G4, G5, G7, B5, B6, B8, e5, e7, e8",
+}
+
+const npsPresets : {[x:string] : string[]} = {
+  "C" : [
+    "E1, E3, E5, A2, A3, A5, D2, D3, D5, G2, G4, G5, B3, B5, B6, e3, e5, e7",
+    "E3, E5, E7, A3, A5, A7, D3, D5, D7, G4, G5, G7, B5, B6, B8, e5, e7, e8",
+    "E5, E7, E8, A5, A7, A8, D5, D7, D9, G5, G7, G9, B6, B8, B10, e7, e8, e10",
+    "E7, E8, E10, A7, A8, A10, D7, D9, D10, G7, G9, G10, B8, B10, B12, e8, e10, e12",
+    "E8, E10, E12, A8, A10, A12, D9, D10, D12, G9, G10, G12, B10, B12, B13, e10, e12, e13",
+    "E10, E12, E13, A10, A12, A13, D10, D12, D13, G10, G12, G13, B12, B13, B15, e12, e13, e15",
+    "E12, E13, E15, A12, A13, A15, D12, D13, D15, G12, G13, G15, B13, B15, B17, e13, e15, e17",
+  ],
+  "D" : [
+    "E3, E5, E7, A4, A5, A7, D4, D5, D7, G4, G6, G7, B5, B7, B8, e5, e7, e9",
+    "E5, E7, E9, A5, A7, A9, D5, D7, D9, G6, G7, G9, B7, B8, B10, e7, e9, e10",
+    "E7, E9, E10, A7, A9, A10, D7, D9, D11, G7, G9, G11, B8, B10, B12, e9, e10, e12",
+    "E9, E10, E12, A9, A10, A12, D9, D11, D12, G9, G11, G12, B10, B12, B14, e10, e12, e14",
+    "E10, E12, E14, A10, A12, A14, D11, D12, D14, G11, G12, G14, B12, B14, B15, e12, e14, e15",
+    "E0, E2, E3, A0, A2, A4, D0, D2, D4, G0, G2, G4, B2, B3, B5, e2, e3, e5",
+    "E2, E3, E5, A2, A4, A5, D2, D4, D5, G2, G4, G6, B3, B5, B7, e3, e5, e7",
+  ],
+  "E": [
+    "E4, E6, E8, A5, A6, A8, D5, D6, D8, G5, G7, G8, B6, B8, B9, e6, e8, e10",
+    "E6, E8, E10, A6, A8, A10, D6, D8, D10, G7, G8, G10, B8, B9, B11, e8, e10, e11",
+    "E11, E9, E12, A9, A11, A12, D9, D11, D13, G9, G11, G13, B10, B12, B14, e11, e12, e14",
+    "E11, E12, E14, A11, A12, A14, D11, D13, D14, G11, G13, G14, B12, B14, B16, e12, e14, e16",
+    "E0, E2, E4, A0, A2, A4, D1, D2, D4, G1, G2, G4, B2, B4, B5, e2, e4, e5",
+    "E2, E4, E5, A2, A4, A6, D2, D4, D6, G2, G4, G6, B4, B5, B7, e4, e5, e7",
+    "E4, E5, E7, A4, A6, A7, D4, D6, D7, G4, G6, G8, B5, B7, B9, e5, e7, e9"
+  ],
+  "F": [
+    "E6, E8, E10, A7, A8, A10, D7, D8, D10, G7, G9, G10, B8, B10, B11, e8, e10, e12",
+    "E8, E10, E12, A8, A10, A12, D8, D10, D12, G9, G10, G12, B10, B11, B13, e10, e12, e13",
+    "E10, E12, E13, A10, A12, A13, D10, D12, D14, G10, G12, G14, B11, B13, B15, e12, e13, e15",
+    "E0, E1, E3, A0, A1, A3, D0, D2, D3, G0, G2, G3, B1, B3, B5, e1, e3, e5",
+    "E1, E3, E5, A1, A3, A5, D2, D3, D5, G2, G3, G5, B3, B5, B6, e3, e5, e6",
+    "E3, E5, E6, A3, A5, A7, D3, D5, D7, G3, G5, G7, B5, B6, B8, e5, e6, e8",
+    "E5, E6, E8, A5, A7, A8, D5, D7, D8, G5, G7, G9, B6, B8, B10, e6, e8, e10"
+  ],
+  "G" : [
+    "E8, E10, E12, A9, A10, A12, D9, D10, D12, G9, G11, G12, B10, B12, B13, e10, e12, e14",
+    "E10, E12, E14, A10, A12, A14, D10, D12, D14, G11, G12, G14, B12, B13, B15, e12, e14, e15",
+    "E0, E2, E3, A0, A2, A3, D0, D2, D4, G0, G2, G4, B1, B3, B5, e2, e3, e5",
+    "E2, E3, E5, A2, A3, A5, D2, D4, D5, G2, G4, G5, B3, B5, B7, e3, e5, e7",
+    "E3, E5, E7, A3, A5, A7, D4, D5, D7, G4, G5, G7, B5, B7, B8, e5, e7, e8",
+    "E5, E7, E8, A5, A7, A9, D5, D7, D9, G5, G7, G9, B7, B8, B10, e7, e8, e10",
+    "E7, E8, E10, A7, A9, A10, D7, D9, D10, G7, G9, G11, B8, B10, B12, e8, e10, e12"
+  ],
+  "A" : [
+    "E10, E12, E14, A11, A12, A14, D11, D12, D14, G11, G13, G14, B12, B14, B15, e12, e14, e16",
+    "E0, E2, E4, A0, A2, A4, D0, D2, D4, G1, G2, G4, B2, B3, B5, e2, e4, e5",
+    "E2, E4, E5, A2, A4, A5, D2, D4, D6, G2, G4, G6, B3, B5, B7, e4, e5, e7",
+    "E4, E5, E7, A4, A5, A7, D4, D6, D7, G4, G6, G7, B5, B7, B9, e5, e7, e9",
+    "E5, E7, E9, A5, A7, A9, D6, D7, D9, G6, G7, G9, B7, B9, B10, e7, e9, e10",
+    "E7, E9, E10, A7, A9, A11, D7, D9, D11, G7, G9, G11, B9, B10, B12, e9, e10, e12",
+    "E9, E10, E12, A9, A11, A12, D9, D11, D12, G9, G11, G13, B10, B12, B14, e10, e12, e14",
+  ],
+  "B" : [
+    "E0, E2, E4, A1, A2, A4, D1, D2, D4, G1, G3, G4, B2, B4, B5, e2, e4, e6",
+    "E2, E4, E6, A2, A4, A6, D2, D4, D6, G3, G4, G6, B4, B5, B7, e4, e6, e7",
+    "E4, E6, E7, A4, A6, A7, D4, D6, D8, G4, G6, G8, B5, B7, B9, e6, e7, e9",
+    "E6, E7, E9, A6, A7, A9, D6, D8, D9, G6, G8, G9, B7, B9, B11, e7, e9, e11",
+    "E7, E9, E11, A7, A9, A11, D8, D9, D11, G8, G9, G11, B9, B11, B12, e9, e11, e12",
+    "E9, E11, E12, A9, A11, A13, D9, D11, D13, G9, G11, G13, B11, B12, B14, e11, e12, e14",
+    "E11, E12, E14, A11, A13, A14, D11, D13, D14, G11, G13, G15, B12, B14, B16, e12, e14, e16"
+  ]
+}
+
+// caged other than c (A, G) is still placeholder
+const cagedPresets : {[x:string] : string[]} = {
+  "C" : [
+    "E5, E7, E8, A5, A7, A8, D5, D7, D9, G5, G7, B5, B6, B8, e5, e7, e8",
+    "E1, E3, E5, A2, A3, A5, D2, D3, D5, G2, G4, G5, B3, B5, e1, e3, e5",
+    "E5, E7, E8, A5, A7, A8, D5, D7, D9, G5, G7, B5, B6, B8, e5, e7, e8",
+    "E5, E7, E8, A5, A7, A8, D5, D7, D9, G5, G7, B5, B6, B8, e5, e7, e8",
+    "E5, E7, E8, A5, A7, A8, D5, D7, D9, G5, G7, B5, B6, B8, e5, e7, e8",
+  ],
+  "D" : [
+    "E5, E7, E8, A5, A7, A8, D5, D7, D9, G5, G7, B5, B6, B8, e5, e7, e8",
+    "E1, E3, E5, A2, A3, A5, D2, D3, D5, G2, G4, G5, B3, B5, e1, e3, e5",
+    "E5, E7, E8, A5, A7, A8, D5, D7, D9, G5, G7, B5, B6, B8, e5, e7, e8",
+    "E5, E7, E8, A5, A7, A8, D5, D7, D9, G5, G7, B5, B6, B8, e5, e7, e8",
+    "E5, E7, E8, A5, A7, A8, D5, D7, D9, G5, G7, B5, B6, B8, e5, e7, e8",
+  ],
+  "E" : [
+    "E5, E7, E8, A5, A7, A8, D5, D7, D9, G5, G7, B5, B6, B8, e5, e7, e8",
+    "E1, E3, E5, A2, A3, A5, D2, D3, D5, G2, G4, G5, B3, B5, e1, e3, e5",
+    "E5, E7, E8, A5, A7, A8, D5, D7, D9, G5, G7, B5, B6, B8, e5, e7, e8",
+    "E5, E7, E8, A5, A7, A8, D5, D7, D9, G5, G7, B5, B6, B8, e5, e7, e8",
+    "E5, E7, E8, A5, A7, A8, D5, D7, D9, G5, G7, B5, B6, B8, e5, e7, e8",
+  ],
+  "F" : [
+    "E5, E7, E8, A5, A7, A8, D5, D7, D9, G5, G7, B5, B6, B8, e5, e7, e8",
+    "E1, E3, E5, A2, A3, A5, D2, D3, D5, G2, G4, G5, B3, B5, e1, e3, e5",
+    "E5, E7, E8, A5, A7, A8, D5, D7, D9, G5, G7, B5, B6, B8, e5, e7, e8",
+    "E5, E7, E8, A5, A7, A8, D5, D7, D9, G5, G7, B5, B6, B8, e5, e7, e8",
+    "E5, E7, E8, A5, A7, A8, D5, D7, D9, G5, G7, B5, B6, B8, e5, e7, e8",
+  ],
+  "G" : [
+    "E5, E7, E8, A5, A7, A8, D5, D7, D9, G5, G7, B5, B6, B8, e5, e7, e8",
+    "E1, E3, E5, A2, A3, A5, D2, D3, D5, G2, G4, G5, B3, B5, e1, e3, e5",
+    "E5, E7, E8, A5, A7, A8, D5, D7, D9, G5, G7, B5, B6, B8, e5, e7, e8",
+    "E5, E7, E8, A5, A7, A8, D5, D7, D9, G5, G7, B5, B6, B8, e5, e7, e8",
+    "E5, E7, E8, A5, A7, A8, D5, D7, D9, G5, G7, B5, B6, B8, e5, e7, e8",
+  ],
+  "A" : [
+    "E5, E7, E8, A5, A7, A8, D5, D7, D9, G5, G7, B5, B6, B8, e5, e7, e8",
+    "E1, E3, E5, A2, A3, A5, D2, D3, D5, G2, G4, G5, B3, B5, e1, e3, e5",
+    "E5, E7, E8, A5, A7, A8, D5, D7, D9, G5, G7, B5, B6, B8, e5, e7, e8",
+    "E5, E7, E8, A5, A7, A8, D5, D7, D9, G5, G7, B5, B6, B8, e5, e7, e8",
+    "E5, E7, E8, A5, A7, A8, D5, D7, D9, G5, G7, B5, B6, B8, e5, e7, e8",
+  ],
+  "B" : [
+    "E5, E7, E8, A5, A7, A8, D5, D7, D9, G5, G7, B5, B6, B8, e5, e7, e8",
+    "E1, E3, E5, A2, A3, A5, D2, D3, D5, G2, G4, G5, B3, B5, e1, e3, e5",
+    "E5, E7, E8, A5, A7, A8, D5, D7, D9, G5, G7, B5, B6, B8, e5, e7, e8",
+    "E5, E7, E8, A5, A7, A8, D5, D7, D9, G5, G7, B5, B6, B8, e5, e7, e8",
+    "E5, E7, E8, A5, A7, A8, D5, D7, D9, G5, G7, B5, B6, B8, e5, e7, e8",
+  ],
 }
 
 function guitarOffsetToNotesWithOctave(notation : string){
@@ -569,6 +691,55 @@ function App() {
   const [score, setScore] = createSignal<number>(0)
   const [isCursorHoverFingerboard, setIsCursorHoverFingerboard] = createSignal<boolean>(false)
   const [guitarMarkersCount, setGuitarMarkerCount] = createSignal<{[x:string] : number}>(Object.entries(guitarMarkersPos).map(el=>el[0]).reduce((acc, cur) => ({...acc, [cur] : 0}), {}))
+
+  const [naturalPresetOpen, setNaturalPresetOpen] = createSignal(false);
+  const [npsPresetOpen, setNpsPresetOpen] = createSignal(false);
+  const [cagedPresetOpen, setCagedPresetOpen] = createSignal(false);
+  const [selectedNoteToPresets, setSelectedNoteToPresets] = createSignal<string>("C");
+  // Loading audio - start
+    const [loadedItem, setLoadedItem] = createSignal(0);
+
+    const onAudioLoaded = () => {
+      console.log(loadedItem())
+      setLoadedItem(loadedItem() + 1)
+    };
+
+    onMount(() => {
+      NOTES_WITH_OCTAVE.forEach((note) => {
+        const audio = new Audio(`./sfx/${note.replace('#', 's')}.wav`)
+        audio.addEventListener('error', () => {
+          //reload the audio if failed to load
+          console.log('Failed to load, retrying ...')
+          audio.load()
+        })
+        audio.addEventListener('canplaythrough', onAudioLoaded);
+      })
+      const audio = new Audio('./sfx/metronome-accent.mp3');
+      audio.addEventListener('error', () => {
+        console.log('Failed to load, retrying ...')
+        audio.load()
+      })
+      audio.addEventListener('canplaythrough', onAudioLoaded);
+    });
+  // Loading audio - end
+
+  // SimpleBar - start
+    let presetContainer : HTMLDivElement | null = null;
+    let topTextContainer : HTMLDivElement | null = null;
+    let bottomUtilContainer : HTMLDivElement | null = null;
+    let notesTextAreaContainer : HTMLTextAreaElement | null = null;
+
+    const [_, setPresetContainerSimplebar] = createSignal<SimpleBar | null>();
+    onMount(() => {
+      presetContainer!.style.height = `${deviceHeight - topTextContainer!.clientHeight - bottomUtilContainer!.clientHeight - 55}px`
+      const simpleBarInstance = new SimpleBar(presetContainer!)
+      setPresetContainerSimplebar(simpleBarInstance)
+
+      new ResizeObserver(() => {
+        presetContainer!.style.height = `${deviceHeight - topTextContainer!.clientHeight - bottomUtilContainer!.clientHeight - 55}px`
+      }).observe(notesTextAreaContainer!);
+    })
+  // SimpleBar - end
 
   createEffect(on(notes, () =>{
     const newGuitarMarkersCount : {[x:string] : number} = (Object.entries(guitarMarkersPos).map(el=>el[0]).reduce((acc, cur) => ({...acc, [cur] : 0}), {}))
@@ -652,69 +823,132 @@ function App() {
 
   return (
     <div style={{height : `${deviceHeight}px`}} class='flex'>
-      <div class='flex flex-col w-72 gap-3 items-center h-full overflow-hidden p-3 shadow-2xl relative z-[1]'>
-        <h1>Enter Notes</h1>
-        <div class='flex flex-col gap-1 w-full grow'>
-          <textarea class={'border border-gray-500 w-full '} value={noteField()} onKeyUp={(e) => setNoteField(e.currentTarget.value)}/>
-          <div class='flex gap-1'>
-            <span class='text-gray-500'>or</span>
-            <span>Use Preset</span>
+      <Show when={loadedItem() < NOTES_WITH_OCTAVE.length + 1}>
+        <div class='absolute w-full h-full bg-black grid place-content-center z-[1]'>
+          <div class='text-white text-2xl'>Loading Audio ... {loadedItem()}/{NOTES_WITH_OCTAVE.length + 1}</div>
+        </div>
+      </Show>
+      <div class='flex flex-col w-72 gap-3 items-center h-full overflow-hidden p-3 shadow-2xl relative z-[1] bg-gray-50'>
+        <div class='flex flex-col gap-1 w-full' ref={topTextContainer!}>
+          <h1>Masukkan Note</h1>
+          <textarea ref={notesTextAreaContainer!} class={'border border-gray-500 w-full rounded-md '} value={noteField()} onKeyUp={(e) => setNoteField(e.currentTarget.value)}/>
+          <div>
+            <span class='text-gray-500'>atau</span> <span>Menggunakan Preset </span>
           </div>
-          <div class='flex flex-col grow gap-1'>
+          <div class='flex gap-1 -mb-4 ml-2'>
+            <span class='text-gray-500'>Untuk note : </span>
+            <select class='border border-gray-500 rounded-md px-1' onChange={(e) => setSelectedNoteToPresets(e.currentTarget.value)}>
               {
-                Object.keys(presets).map((preset) => (
-                  <button class='border border-gray-400 p-1' onClick={() => setNoteField(presets[preset])}>{preset}</button>
+                NOTES.map((note) => (
+                  <option value={note}>{note}</option>
                 ))
               }
-            </div>
+            </select>
+          </div>
         </div>
         
-        <div class="flex gap-2 items-center">
-          <div class={`rounded-full w-3 h-3 ${beat() === 0 ? 'bg-blue-500' : 'bg-gray-500'}`}></div>
-          <div class={`rounded-full w-3 h-3 ${beat() === 1 ? 'bg-blue-500' : 'bg-gray-500'}`}></div>
-          <div class={`rounded-full w-3 h-3 ${beat() === 2 ? 'bg-blue-500' : 'bg-gray-500'}`}></div>
-          <div class={`rounded-full w-3 h-3 ${beat() === 3 ? 'bg-blue-500' : 'bg-gray-500'}`}></div>
-          <input type="number" class='border border-gray-400 w-20' value={bpm()} onChange={(e) => setBpm(parseInt(e.currentTarget.value))} />
-          <button class={'border border-gray-400 p-2 ' + (isRandomize() ? 'bg-gray-400' : 'bg-gray-200')} onClick={toggleRandomize}>randomize</button>
+        <div class='flex flex-col w-full px-2' ref={presetContainer!}>
+          <div class={'px-2 mt-3 border-gray-400 rounded-md ' + (naturalPresetOpen() 
+            ? 'pb-4 pt-2 bg-gray-200' 
+            : 'border py-2 cursor-pointer hover:bg-white transform hover:scale-105 hover:shadow-md transition-all ')}>
+            <div onClick={() => setNaturalPresetOpen(!naturalPresetOpen())} 
+            class='flex justify-between items-center'><span>Note natural per senar</span>  <i class={'bi bi-caret-down' + (naturalPresetOpen() ? '-fill cursor-pointer' : '')}/></div>
+            <Show when={naturalPresetOpen()}>
+              {
+                Object.keys(naturalPresets).map((preset) => (
+                  <button class='border cursor-pointer border-gray-400 p-1 block w-full mt-2 hover:bg-white rounded-md transform hover:scale-105 hover:shadow-md transition-all' onClick={() => setNoteField(naturalPresets[preset])}>{preset}</button>
+                ))
+              }
+            </Show>
+          </div>
+
+          <div class={'px-2 mt-3 border-gray-400 rounded-md ' + (npsPresetOpen() 
+            ? 'pb-4 pt-2 bg-gray-200' 
+            : 'border py-2 cursor-pointer hover:bg-white transform hover:scale-105 hover:shadow-md transition-all ')}>
+            <div onClick={() => setNpsPresetOpen(!npsPresetOpen())} 
+            class='flex justify-between items-center'><span>3 Note per String (3NPS)</span>  <i class={'bi bi-caret-down' + (npsPresetOpen() ? '-fill cursor-pointer' : '')}/></div>
+            <Show when={npsPresetOpen()}>
+              {
+                new Array(7).fill(0).map((_, index) => (
+                  <button class='border cursor-pointer border-gray-400 p-1 block w-full mt-2 hover:bg-white rounded-md transform hover:scale-105 hover:shadow-md transition-all' onClick={() => setNoteField(npsPresets[selectedNoteToPresets()][index])}>Posisi {index + 1}</button>
+                ))
+              }
+            </Show>
+          </div>
+
+          <div class={'px-2 mt-3 border-gray-400 rounded-md ' + (cagedPresetOpen() 
+            ? 'pb-4 pt-2 bg-gray-200' 
+            : 'border py-2 cursor-pointer hover:bg-white transform hover:scale-105 hover:shadow-md transition-all ')}>
+            <div onClick={() => setCagedPresetOpen(!cagedPresetOpen())} 
+            class='flex justify-between items-center'><span>CAGED</span>  <i class={'bi bi-caret-down' + (cagedPresetOpen() ? '-fill cursor-pointer' : '')}/></div>
+            <Show when={cagedPresetOpen()}>
+              {
+                ["C", "A", "G", "E", "D"].map((label, index) => (
+                  <button class='border cursor-pointer border-gray-400 p-1 block w-full mt-2 hover:bg-white rounded-md transform hover:scale-105 hover:shadow-md transition-all' onClick={() => setNoteField(cagedPresets[selectedNoteToPresets()][index])}>Posisi {label}</button>
+                ))
+              }
+            </Show>
+          </div>
         </div>
-        <div class='text-4xl flex justify-center'>
-          {
-            beatInterval() === undefined
-            ? <button onClick={play}><i class="bi bi-play-fill"></i></button> 
-            : <button onClick={() => clearBeatInterval()}><i class="bi bi-stop-fill"></i></button>
-          } 
+
+        <div class='flex flex-col gap-3' ref={bottomUtilContainer!}>
+          <div class="flex gap-2 items-center">
+            <input type="number" class='border border-gray-400 w-20 h-full px-2 rounded-md' value={bpm()} onChange={(e) => setBpm(parseInt(e.currentTarget.value))} />
+            <button class={'border border-gray-400 p-2 rounded-md w-full overflow-hidden ' + (isRandomize() ? 'activeButton bg-gray-50' : 'inactiveButton bg-white')} onClick={toggleRandomize}>
+              <div class={'w-full h-full transform ' + (isRandomize() ? 'scale-95' : '')}>randomize</div>
+            </button>
+          </div>
+          <div class='text-4xl flex justify-center'>
+            {
+              beatInterval() === undefined
+              ? <button onClick={play}><i class="bi bi-play-fill"></i></button> 
+              : <button onClick={() => clearBeatInterval()}><i class="bi bi-stop-fill"></i></button>
+            } 
+          </div>
+          {/* <div class='flex gap-1 items-center'>
+            <span>Score :</span>
+            <div class='bg-blue-200 px-1'>{score()}</div>
+          </div> */}
+        </div>
+      </div>
+      <div class='grow flex items-center relative bg-gray-100'>
+        <div class='absolute top-0 flex flex-col m-2'>
+          <span class='text-gray-600'><span class='font-bold text-black'>arahkan kursor keatas fingerboard : </span>untuk melihat note</span>
+          <span class='text-gray-600'><span class='font-bold text-black'>klik sebuah note : </span>untuk menambahkannya ke daftar note</span>
+          <span class='text-gray-600'><span class='font-bold text-black'>shift + klik sebuah note : </span>untuk menghapusnya dari daftar note</span>
         </div>
         <Show when={beatInterval() !== undefined}>
-          <div class='flex gap-1 items-center'>
-            <div class='w-32 h-32 bg-blue-500 text-white grid place-content-center'>
-              <span class='text-6xl font-bold'>
-                {(guitarOffsetToNotesWithOctave(noteStack()[0]) || '😃').replace(/[0-9]/g, '')}
-              </span>
+          <div class='absolute bottom-0 left-0 m-2 bg-white shadow-lg p-4 z-[1] flex flex-col gap-2 items-center'>
+            <div class='flex gap-1 items-center'>
+              <div class='w-32 h-32 bg-blue-500 text-white grid place-content-center'>
+                <span class='text-6xl font-bold'>
+                  {(guitarOffsetToNotesWithOctave(noteStack()[0]) || '😃').replace(/[0-9]/g, '')}
+                </span>
+              </div>
+              <div class='w-20 h-20 bg-blue-500 text-white grid place-content-center'>
+                <span class='text-3xl font-bold'>
+                  {guitarOffsetToNotesWithOctave(noteStack()[1]).replace(/[0-9]/g, '')}
+                </span>
+              </div>
             </div>
-            <div class='w-20 h-20 bg-blue-500 text-white grid place-content-center'>
-              <span class='text-3xl font-bold'>
-                {guitarOffsetToNotesWithOctave(noteStack()[1]).replace(/[0-9]/g, '')}
-              </span>
+            { score() > 0 && notes().length > 0 && !! beatInterval() && score()/notes().length > 0
+            ? <div class='flex gap-1 items-center'>
+                <span>Loop :</span>
+                <div class='bg-blue-200 px-1'>{Math.trunc(score()/notes().length)}</div>
+              </div>
+            : <div class='flex gap-1 items-center'>
+              <span>Loop :</span>
+              <div class='bg-blue-200 px-1'>{Math.trunc(score()/notes().length)}</div>
+            </div>
+            }
+            <div class="flex gap-2 items-center">
+              <div class={`rounded-full w-3 h-3 ${beat() === 0 ? 'bg-blue-500' : 'bg-gray-500'}`}></div>
+              <div class={`rounded-full w-3 h-3 ${beat() === 1 ? 'bg-blue-500' : 'bg-gray-500'}`}></div>
+              <div class={`rounded-full w-3 h-3 ${beat() === 2 ? 'bg-blue-500' : 'bg-gray-500'}`}></div>
+              <div class={`rounded-full w-3 h-3 ${beat() === 3 ? 'bg-blue-500' : 'bg-gray-500'}`}></div>
             </div>
           </div>
         </Show>
-        {/* <div class='flex gap-1 items-center'>
-          <span>Score :</span>
-          <div class='bg-blue-200 px-1'>{score()}</div>
-        </div> */}
-        { score() > 0 && notes().length > 0 && beatInterval() !== undefined && score()/notes().length > 0 &&
-          <div class='flex gap-1 items-center'>
-            <span>Loop :</span>
-            <div class='bg-blue-200 px-1'>{Math.trunc(score()/notes().length)}</div>
-          </div>
-        }
-      </div>
-      <div class='grow flex items-center relative'>
-        <div class='absolute top-0 flex flex-col m-2'>
-          <span class='text-gray-600'><span class='font-bold text-black'>hover over fingerboard </span>to see the notes</span>
-          <span class='text-gray-600'><span class='font-bold text-black'>click a note : </span>to add note to the list</span>
-          <span class='text-gray-600'><span class='font-bold text-black'>shift + click a note : </span>to remove note from list</span>
-        </div>
         <div class='w-full relative'>
           <div class='absolute left-[4%] w-[71.5%] h-[15%] top-[50.8%] transform -translate-y-1/2'
           onMouseOver={()=>setIsCursorHoverFingerboard(true)}
@@ -743,6 +977,9 @@ function App() {
                       }
                     } else{
                       // if marker is not in the notes, add it
+                      const audioString = `./sfx/${guitarOffsetToNotesWithOctave(marker[0]).replace('#', 's')}.wav`
+                      const audio = new Audio(audioString)
+                      audio.play()
                       newNoteField =  [...notes(), marker[0]]
                     }
 
@@ -778,13 +1015,13 @@ function App() {
                 ))
               }
               <div class='absolute top-1/2 left-1/2 transform -translate-y-1/2 -translate-x-1/2 w-[110%] h-[130%] z-[0]' 
-                
+
                 />
             </div>
           </div>
           <img src={mainGuitarIMG} alt="main-guitar" class='object-contain w-full' />
         </div>
-      </div>      
+      </div>    
     </div>
   )
 }
