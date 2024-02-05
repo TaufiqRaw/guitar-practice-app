@@ -824,7 +824,7 @@ function App() {
   return (
     <div style={{height : `${deviceHeight}px`}} class='flex'>
       <Show when={loadedItem() < NOTES_WITH_OCTAVE.length + 1}>
-        <div class='absolute w-full h-full bg-black grid place-content-center z-[1]'>
+        <div class='absolute w-full h-full bg-black grid place-content-center z-10'>
           <div class='text-white text-2xl'>Loading Audio ... {loadedItem()}/{NOTES_WITH_OCTAVE.length + 1}</div>
         </div>
       </Show>
