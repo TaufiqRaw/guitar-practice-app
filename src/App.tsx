@@ -925,7 +925,7 @@ function App() {
                   {(guitarOffsetToNotesWithOctave(noteStack()[0]) || '😃').replace(/[0-9]/g, '')}
                 </span>
               </div>
-              <div class='w-20 h-20 bg-blue-500 text-white grid place-content-center'>
+              <div class='w-20 h-20 bg-yellow-500 text-white grid place-content-center'>
                 <span class='text-3xl font-bold'>
                   {guitarOffsetToNotesWithOctave(noteStack()[1]).replace(/[0-9]/g, '')}
                 </span>
